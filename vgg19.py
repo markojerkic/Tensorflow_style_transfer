@@ -1,6 +1,5 @@
-import numpy as np
-import tensorflow as tf
 import h5py
+import tensorflow as tf
 
 URL = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.1' \
       '/vgg19_weights_tf_dim_ordering_tf_kernels_notop.h5 '
@@ -13,7 +12,7 @@ def maybe_download(path, url):
     return p
 
 
-class VGG19():
+class VGG:
     def __init__(self):
         weights_path = maybe_download('weights.h5', URL)
         self.weights_file = h5py.File(weights_path, 'r')
@@ -50,5 +49,4 @@ class VGG19():
         return graph
 
 
-vgg = VGG19()
-graph = vgg.create_graph((225, 225, 3))
+

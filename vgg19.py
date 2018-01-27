@@ -4,8 +4,6 @@ import tensorflow as tf
 URL = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.1' \
       '/vgg19_weights_tf_dim_ordering_tf_kernels_notop.h5 '
 
-layers = ['block1_conv1', 'block1_conv']
-
 
 def maybe_download(path, url):
     p = tf.keras.utils.get_file(path, url, file_hash='253f8cb515780f3b799900260a226db6')
@@ -14,10 +12,12 @@ def maybe_download(path, url):
 
 class VGG:
     def __init__(self):
+        # Download weights
         weights_path = maybe_download('weights.h5', URL)
         self.weights_file = h5py.File(weights_path, 'r')
         # Print to start a new line in output terminal
         print()
+        # Create a list of the names of all layers in the VGG network
         self.layer_names = [name for name in self.weights_file]
 
     def load_weights_and_biases(self, name):
@@ -48,6 +48,3 @@ class VGG:
                 graph[name] = self.pool_layer(graph[last_layer_name])
                 last_layer_name = name
         return graph
-
-
-

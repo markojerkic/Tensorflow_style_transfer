@@ -4,6 +4,7 @@ from scipy.misc import imsave, imread, imresize
 
 import vgg19
 
+# Set a couple of constants
 CONTENT_PATH = '/images/content.jpg'
 STYLE_PATH = '/images/style.jpg'
 CONTENT_LAYER = 'block4_conv1'
@@ -16,42 +17,56 @@ TV_WEIGHT = 1e-4
 def load_img(path, shape, content=True):
     img = imread(path)
     if content:
+        # If the image is the content image,
+        # calculate the shape
         h, w, d = img.shape
         width = int((w * shape / h))
         img = imresize(img, (shape, width, d))
         print('content {}'.format(img.shape))
     else:
+        # The style image is set to be the same shape
+        # as the content image
         img = imresize(img, (shape[1], shape[2], shape[3]))
         print('style {}'.format(img.shape))
     img = img.astype('float32')
+    # Subtract the mean values
     img -= np.array([123.68, 116.779, 103.939], dtype=np.float32)
+    # Add a batch dimension
     img = np.expand_dims(img, axis=0)
     return img
 
 
 def deprocess(img):
+    # Remove the fourth dimension
     img = img[0]
+    # Add the mean values
     img += np.array([123.68, 116.779, 103.939], dtype=np.float32)
     return img
 
 
 def calc_content_loss(sess, model, content_img):
     sess.run(tf.global_variables_initializer())
+    # Set the input of the graph to the content image
     sess.run(model['input'].assign(content_img))
+    # Get the feature maps
     p = sess.run(model[CONTENT_LAYER])
     x = model[CONTENT_LAYER]
+    # Euclidean distance
     return tf.reduce_sum(tf.square(x - p)) * 0.5
 
 
 def gram_matrix(x):
+    # Flatten the feature map
     x = tf.reshape(x, (-1, x.shape[3]))
     return tf.matmul(x, x, transpose_a=True)
 
 
 def calc_style_loss(sess, model, style_img):
     sess.run(tf.global_variables_initializer())
+    # Set the input of the graph to the style image
     sess.run(model['input'].assign(style_img))
     loss = 0
+    # We need to calculate the loss for each style layer
     for layer_name in STYLE_LAYERS:
         a = sess.run(model[layer_name])
         a = tf.convert_to_tensor(a)
@@ -75,6 +90,7 @@ def main():
         tf_style = tf.constant(style_img, dtype=tf.float32, name='style_img')
         tf_gen_img = tf.random_normal(tf_content.shape)
 
+        # Load the graph
         model = vgg.create_graph(tf_content)
 
         loss = 0
@@ -87,6 +103,7 @@ def main():
         sess.run(tf.global_variables_initializer())
         sess.run(model['input'].assign(tf_gen_img))
 
+        # For this kind of use case, the limited memory BFGS performs the best
         optimizer = tf.contrib.opt.ScipyOptimizerInterface(loss, method='L-BFGS-B',
                                                            options={'maxiter': 500})
 
@@ -94,6 +111,7 @@ def main():
         step = 0
 
         def update(l):
+            # Function to print loss
             global step
             if step % 100 == 0:
                 print('Step {}; loss {}'.format(step, l))

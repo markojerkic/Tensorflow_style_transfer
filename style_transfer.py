@@ -19,16 +19,19 @@ def load_img(path, shape, content=True):
         h, w, d = img.shape
         width = int((w * shape / h))
         img = imresize(img, (shape, width, d))
+        print('content {}'.format(img.shape))
     else:
-        img = imread(img, shape)
-    img -= [123.68, 116.779, 103.939]
+        img = imresize(img, (shape[1], shape[2], shape[3]))
+        print('style {}'.format(img.shape))
+    img = img.astype('float32')
+    img -= np.array([123.68, 116.779, 103.939], dtype=np.float32)
     img = np.expand_dims(img, axis=0)
     return img
 
 
 def deprocess(img):
     img = img[0]
-    img += [123.68, 116.779, 103.939]
+    img += np.array([123.68, 116.779, 103.939], dtype=np.float32)
     return img
 
 
@@ -49,7 +52,7 @@ def calc_style_loss(sess, graph):
         size = gen.shape[1] * gen.shape[2]
         depth = gen.shape[3]
         res = (1 / 4 * ((size ** 2) * (depth ** 2))) * tf.reduce_sum(
-            gram_matrix(graph[layer_name] - gram_matrix(gen)))
+            gram_matrix(graph[layer_name]) - gram_matrix(gen))
         loss += res
     return loss / len(STYLE_LAYERS)
 
@@ -91,6 +94,7 @@ def main():
             if step % 50 == 0:
                 print('Step {}; loss {}'.format(step, l))
                 imsave('/output/img{}.jpg'.format(step), deprocess(i))
+            step += 1
 
         optimizer.minimize(sess, fetches=[total_loss, graph['input']], loss_callback=update)
 

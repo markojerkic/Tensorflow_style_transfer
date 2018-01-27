@@ -44,7 +44,7 @@ class VGG:
                 graph[name] = self.conv_layer(graph[last_layer_name], name)
                 last_layer_name = name
             elif kind == 'pool':
-                graph[name] = self.pool_layer(graph[last_layer_name], name)
+                graph[name] = self.pool_layer(graph[last_layer_name])
                 last_layer_name = name
         return graph
 

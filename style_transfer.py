@@ -6,10 +6,10 @@ import vgg19
 
 CONTENT_PATH = '/images/content.jpg'
 STYLE_PATH = '/images/style.jpg'
-CONTENT_LAYER = 'block4_conv2'
+CONTENT_LAYER = 'block4_conv1'
 STYLE_LAYERS = ['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
 STYLE_WEIGHT = 1e4
-CONTENT_WEIGHT = 5e0
+CONTENT_WEIGHT = 1e0
 TV_WEIGHT = 1e-4
 
 
@@ -35,9 +35,12 @@ def deprocess(img):
     return img
 
 
-def calc_content_loss(sess, graph):
-    gen = sess.run(graph[CONTENT_LAYER])
-    return tf.reduce_sum(tf.square(graph[CONTENT_LAYER] - gen))
+def calc_content_loss(sess, model, content_img):
+    sess.run(tf.global_variables_initializer())
+    sess.run(model['input'].assign(content_img))
+    p = sess.run(model[CONTENT_LAYER])
+    x = model[CONTENT_LAYER]
+    return tf.reduce_sum(tf.square(x - p)) * 0.5
 
 
 def gram_matrix(x):
@@ -45,58 +48,59 @@ def gram_matrix(x):
     return tf.matmul(x, x, transpose_a=True)
 
 
-def calc_style_loss(sess, graph):
+def calc_style_loss(sess, model, style_img):
+    sess.run(tf.global_variables_initializer())
+    sess.run(model['input'].assign(style_img))
     loss = 0
     for layer_name in STYLE_LAYERS:
-        gen = sess.run(graph[layer_name])
-        size = gen.shape[1] * gen.shape[2]
-        depth = gen.shape[3]
-        res = (1 / 4 * ((size ** 2) * (depth ** 2))) * tf.reduce_sum(
-            gram_matrix(graph[layer_name]) - gram_matrix(gen))
-        loss += res
+        a = sess.run(model[layer_name])
+        a = tf.convert_to_tensor(a)
+        x = model[layer_name]
+        size = a.shape[1].value * a.shape[2].value
+        depth = a.shape[3].value
+        gram_a = gram_matrix(a)
+        gram_x = gram_matrix(x)
+        loss += (1. / (4. * ((size ** 2) * (depth ** 2)))) * tf.reduce_sum(tf.square(gram_x - gram_a))
     return loss / len(STYLE_LAYERS)
 
 
 def main():
     content_img = load_img(CONTENT_PATH, 300)
     style_img = load_img(STYLE_PATH, content_img.shape, content=False)
-    gen_img = content_img
 
     vgg = vgg19.VGG()
 
     with tf.Session() as sess:
-        graph = vgg.create_graph(content_img.shape)
+        tf_content = tf.constant(content_img, dtype=tf.float32, name='content_img')
+        tf_style = tf.constant(style_img, dtype=tf.float32, name='style_img')
+        tf_gen_img = tf.random_normal(tf_content.shape)
+
+        model = vgg.create_graph(tf_content)
+
+        loss = 0
+        loss += CONTENT_WEIGHT * calc_content_loss(sess, model, tf_content)
+
+        loss += STYLE_WEIGHT * calc_style_loss(sess, model, tf_style)
+
+        loss += TV_WEIGHT * tf.image.total_variation(model['input'])
 
         sess.run(tf.global_variables_initializer())
-        sess.run(graph['input'].assign(content_img))
-        content_loss = calc_content_loss(sess, graph)
+        sess.run(model['input'].assign(tf_gen_img))
 
-        sess.run(tf.global_variables_initializer())
-        sess.run(graph['input'].assign(style_img))
-        style_loss = calc_style_loss(sess, graph)
-
-        sess.run(tf.global_variables_initializer())
-        sess.run(graph['input'].assign(gen_img))
-        total_variance_loss = tf.image.total_variation(graph['input'])
-
-        total_loss = CONTENT_WEIGHT * content_loss + STYLE_WEIGHT * style_loss + TV_WEIGHT * total_variance_loss
-
-        optimizer = tf.contrib.opt.ScipyOptimizerInterface(total_loss, method='L-BFGS-B',
-                                                           options={'maxiter': 300})
-
-        sess.run(tf.global_variables_initializer())
+        optimizer = tf.contrib.opt.ScipyOptimizerInterface(loss, method='L-BFGS-B',
+                                                           options={'maxiter': 500})
 
         global step
         step = 0
 
-        def update(l, i):
+        def update(l):
             global step
-            if step % 50 == 0:
+            if step % 100 == 0:
                 print('Step {}; loss {}'.format(step, l))
-                imsave('/output/img{}.jpg'.format(step), deprocess(i))
             step += 1
 
-        optimizer.minimize(sess, fetches=[total_loss, graph['input']], loss_callback=update)
+        optimizer.minimize(sess, fetches=[loss], loss_callback=update)
+        imsave('/output/output.jpg', deprocess(sess.run(model['input'])))
 
 
 if __name__ == '__main__':

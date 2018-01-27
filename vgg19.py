@@ -16,6 +16,8 @@ class VGG:
     def __init__(self):
         weights_path = maybe_download('weights.h5', URL)
         self.weights_file = h5py.File(weights_path, 'r')
+        # Print to start a new line in output terminal
+        print()
         self.layer_names = [name for name in self.weights_file]
 
     def load_weights_and_biases(self, name):
@@ -33,9 +35,8 @@ class VGG:
         logits = tf.nn.avg_pool(prev_layer, [1, 2, 2, 1], [1, 2, 2, 1], 'SAME')
         return logits
 
-    def create_graph(self, shape):
-        graph = {}
-        graph['input'] = tf.Variable(tf.zeros(shape, dtype=tf.float32))
+    def create_graph(self, img):
+        graph = {'input': tf.Variable(img, dtype=tf.float32)}
 
         last_layer_name = 'input'
         for name in self.layer_names:

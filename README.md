@@ -12,4 +12,4 @@ Tensorflow implementation of the neural style algorithm
 </p>
 
 ## Influence
-This programm was inspired by the original [paper](https://arxiv.org/abs/1705.04058).
+This program was inspired by the original [paper](https://arxiv.org/abs/1705.04058).
